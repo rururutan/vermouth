@@ -1,0 +1,9 @@
+EXPORTS
+	vermouth_Open
+	vermouth_Close
+	vermouth_Write
+	vermouth_ShortMsg
+	vermouth_LongMsg
+	vermouth_Get16
+	vermouth_Get32
+	vermouth_SetParent
