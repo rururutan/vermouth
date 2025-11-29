@@ -1,1 +1,9 @@
-# vermouth
+# Vermouth
+
+
+## Build
+
+> cmake -S . -B build
+>
+> cmake --build build --config Release
+
