@@ -20,7 +20,7 @@ file(GLOB_RECURSE SRC_C RELATIVE ${PROJECT_SOURCE_DIR} ./src/*.c)
 #------------------------------------------
 # Make DLL file
 #------------------------------------------
-add_library(vermouth SHARED ${SRC_C} ${SRC_CPP} )
+add_library(vermouth SHARED ${SRC_C} ${SRC_CPP} ./src/Win9x/vermouth.def )
 
 #------------------------------------------
 # Compile Option
