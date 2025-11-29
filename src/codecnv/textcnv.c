@@ -1,3 +1,4 @@
+#if 0
 #include	"compiler.h"
 #include	"codecnv.h"
 #include	"textcnv.h"
@@ -91,3 +92,4 @@ UINT textcnv_getinfo(TCINF *inf, const UINT8 *hdr, UINT hdrsize) {
 	return(info.caps);
 }
 
+#endif

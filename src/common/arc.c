@@ -2,6 +2,8 @@
 #include	"dosio.h"
 #include	"arc.h"
 #include	"arcfunc.h"
+#include	"common.h"
+#include	"_memory.h"
 #if defined(OSLANG_UCS2) || defined(OSLANG_UTF8)
 #include	"oemtext.h"
 #endif

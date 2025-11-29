@@ -1,4 +1,5 @@
 #include	"compiler.h"
+#include	"common.h"
 #include	"bmpdata.h"
 
 

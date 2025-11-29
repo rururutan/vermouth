@@ -2,6 +2,8 @@
 #include	<ddraw.h>
 #include	"dd2.h"
 
+#pragma comment(lib, "ddraw.lib")
+#pragma comment(lib, "dxguid.lib")
 
 typedef struct {
 	HWND					hwnd;

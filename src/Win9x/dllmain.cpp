@@ -293,12 +293,12 @@ static void dllinitialize(HINSTANCE hInstance) {
 	hWndMain = NULL;
 	hInst = hInstance;
 
-#if defined(OEMCHAR_SAME_TCHAR)
+#if defined(UNICODE)
 	GetModuleFileName(hInstance, modulefile, NELEMENTS(modulefile));
 #else
 	TCHAR _modulefile[MAX_PATH];
 	GetModuleFileName(hInstance, _modulefile, NELEMENTS(_modulefile));
-	tchartooem(modulefile, NELEMENTS(modulefile), _modulefile, (UINT)-1);
+	oemtext_ucs2tochar(modulefile, NELEMENTS(modulefile), _modulefile, (UINT)-1);
 #endif
 	dosio_init();
 	file_setcd(modulefile);

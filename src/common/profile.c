@@ -2,6 +2,8 @@
 #include	"strres.h"
 #include	"textfile.h"
 #include	"profile.h"
+#include	"common.h"
+#include	"strres.h"
 #if defined(SUPPORT_TEXTCNV)
 #include	"textcnv.h"
 #endif
