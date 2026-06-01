@@ -143,8 +143,10 @@ void keydisp_midi(const UINT8 *cmd) {
 			}
 			break;
 
-		case 0xfe:
-			keyalloff();
+		case 0xf0:
+			if (cmd[0] == 0xfe) {
+				keyalloff();
+			}
 			break;
 	}
 }
@@ -441,7 +443,9 @@ BOOL keydisp_paint(CMNVRAM *vram, BOOL redraw) {
 	keydisp.framepast = 0;
 
 kdpnt_exit:
-	vram->ptr = saveptr;
+	if (vram) {
+		vram->ptr = saveptr;
+	}
 	return(draw);
 }
 #endif
