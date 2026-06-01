@@ -16,6 +16,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #------------------------------------------
 file(GLOB_RECURSE SRC_CPP RELATIVE ${PROJECT_SOURCE_DIR} ./src/Win9x/*.cpp)
 file(GLOB_RECURSE SRC_C RELATIVE ${PROJECT_SOURCE_DIR} ./src/*.c)
+list(REMOVE_ITEM SRC_CPP "./src/Win9x/dd2.cpp")
 
 #------------------------------------------
 # Make DLL file

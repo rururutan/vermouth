@@ -2,7 +2,6 @@
 #include	"dllmain.h"
 #include	"winloc.h"
 #include	"ini.h"
-#include	"dd2.h"
 #include	"subwind.h"
 #include	"keydisp.h"
 
@@ -14,7 +13,10 @@
 typedef struct {
 	HWND		hwnd;
 	WINLOCEX	wlex;
-	DD2HDL		dd2hdl;
+	HDC			hdc;
+	HBITMAP		dib;
+	HBITMAP		oldbmp;
+	CMNVRAM		vram;
 } KDISPWIN;
 
 typedef struct {
@@ -43,14 +45,6 @@ static const PFTBL kdispini[] = {
 				PFVAL("WindposY", PFTYPE_SINT32,	&kdispcfg.posy)};
 
 
-static UINT8 kdgetpal8(CMNPALFN *self, UINT num) {
-
-	if (num < KEYDISP_PALS) {
-		return(kdisppal[num] >> 24);
-	}
-	return(0);
-}
-
 static UINT32 kdgetpal32(CMNPALFN *self, UINT num) {
 
 	if (num < KEYDISP_PALS) {
@@ -59,31 +53,20 @@ static UINT32 kdgetpal32(CMNPALFN *self, UINT num) {
 	return(0);
 }
 
-static UINT16 kdcnvpal16(CMNPALFN *self, RGB32 pal32) {
+static void kddrawkeys(HDC hdc, BOOL redraw) {
 
-	return(dd2_get16pal((DD2HDL)self->userdata, pal32));
-}
+	keydisp_paint(&kdispwin.vram, TRUE);
 
-static void kddrawkeys(HWND hWnd, BOOL redraw) {
-
-	RECT	rect;
-	RECT	draw;
-	CMNVRAM	*vram;
-
-	GetClientRect(hWnd, &rect);
-	draw.left = 0;
-	draw.top = 0;
-	draw.right = min(KEYDISP_WIDTH, rect.right - rect.left);
-	draw.bottom = min(KEYDISP_HEIGHT, rect.bottom - rect.top);
-	if ((draw.right <= 0) || (draw.bottom <= 0)) {
-		return;
-	}
-	vram = dd2_bsurflock(kdispwin.dd2hdl);
-	if (vram) {
-		keydisp_paint(vram, redraw);
-		dd2_bsurfunlock(kdispwin.dd2hdl);
-		dd2_blt(kdispwin.dd2hdl, NULL, &draw);
-	}
+	BitBlt(
+		hdc,
+		0,
+		0,
+		KEYDISP_WIDTH,
+		KEYDISP_HEIGHT,
+		kdispwin.hdc,
+		0,
+		0,
+		SRCCOPY);
 }
 
 static WINLOCEX winlocexallwin(HWND base) {
@@ -122,11 +105,10 @@ static void kdsetwinsize(void) {
 
 static void kdpaintmsg(HWND hWnd) {
 
-	HDC			hdc;
 	PAINTSTRUCT	ps;
 
-	hdc = BeginPaint(hWnd, &ps);
-	kddrawkeys(hWnd, TRUE);
+	BeginPaint(hWnd, &ps);
+	kddrawkeys(ps.hdc, TRUE);
 	EndPaint(hWnd, &ps);
 }
 
@@ -138,7 +120,19 @@ static LRESULT CALLBACK kdproc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp) {
 			break;
 
 		case WM_TIMER:
-			kdispwin_draw(2);
+		{
+			UINT8 flag;
+
+			flag = keydisp_process(2);
+
+			if (flag & KEYDISP_FLAGSIZING) {
+				kdsetwinsize();
+			}
+
+			if (flag & (KEYDISP_FLAGDRAW | KEYDISP_FLAGREDRAW)) {
+				InvalidateRect(hWnd, NULL, FALSE);
+			}
+		}
 			break;
 
 		case WM_COMMAND:
@@ -192,7 +186,11 @@ static LRESULT CALLBACK kdproc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 		case WM_DESTROY:
 			KillTimer(hWnd, ID_KDTIMER);
-			dd2_release(kdispwin.dd2hdl);
+			if (kdispwin.hdc) {
+				SelectObject(kdispwin.hdc, kdispwin.oldbmp);
+				DeleteObject(kdispwin.dib);
+				DeleteDC(kdispwin.hdc);
+			}
 			kdispwin.hwnd = NULL;
 			break;
 
@@ -207,7 +205,7 @@ BOOL kdispwin_initialize(void) {
 	WNDCLASS	wc;
 
 	ZeroMemory(&wc, sizeof(wc));
-	wc.style = CS_BYTEALIGNCLIENT | CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+	wc.style =  CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
 	wc.lpfnWndProc = kdproc;
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
@@ -265,14 +263,46 @@ void kdispwin_create(void) {
 	}
 	ShowWindow(hwnd, SW_SHOWNOACTIVATE);
 	UpdateWindow(hwnd);
-	kdispwin.dd2hdl = dd2_create(hwnd, KEYDISP_WIDTH, KEYDISP_HEIGHT);
-	if (kdispwin.dd2hdl == NULL) {
+
+	BITMAPINFO bmi;
+	void *bits;
+
+	ZeroMemory(&bmi, sizeof(bmi));
+
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = KEYDISP_WIDTH;
+	bmi.bmiHeader.biHeight = -KEYDISP_HEIGHT;
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 32;
+	bmi.bmiHeader.biCompression = BI_RGB;
+
+	kdispwin.hdc = CreateCompatibleDC(NULL);
+
+	kdispwin.dib = CreateDIBSection(
+		kdispwin.hdc,
+		&bmi,
+		DIB_RGB_COLORS,
+		&bits,
+		NULL,
+		0);
+
+	kdispwin.oldbmp = (HBITMAP)SelectObject(kdispwin.hdc, kdispwin.dib);
+	if (kdispwin.oldbmp == NULL) {
 		goto kdcre_err2;
 	}
-	palfn.get8 = kdgetpal8;
+
+	kdispwin.vram.ptr = (UINT8 *)bits;
+	kdispwin.vram.width = KEYDISP_WIDTH;
+	kdispwin.vram.height = KEYDISP_HEIGHT;
+
+	kdispwin.vram.bpp = 32;
+	kdispwin.vram.xalign = 4;
+	kdispwin.vram.yalign = KEYDISP_WIDTH * 4;
+
+	palfn.get8 = NULL;
 	palfn.get32 = kdgetpal32;
-	palfn.cnv16 = kdcnvpal16;
-	palfn.userdata = (long)kdispwin.dd2hdl;
+	palfn.cnv16 = NULL;
+	palfn.userdata = (long)NULL;
 	keydisp_setpal(&palfn);
 	kdispwin_draw(0);
 	if (hWndMain) SetForegroundWindow(hWndMain);
@@ -304,7 +334,6 @@ void kdispwin_draw(UINT8 cnt) {
 		if (flag & KEYDISP_FLAGSIZING) {
 			kdsetwinsize();
 		}
-		kddrawkeys(kdispwin.hwnd, FALSE);
 	}
 }
 

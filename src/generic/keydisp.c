@@ -413,7 +413,9 @@ BOOL keydisp_paint(CMNVRAM *vram, BOOL redraw) {
 	int			keys;
 	int			i;
 	KDCHANNEL	*p;
+	UINT8* saveptr;
 
+	saveptr = vram->ptr;
 	draw = FALSE;
 	if ((vram == NULL) ||
 		(vram->width < KEYDISP_WIDTH) || (vram->height < 1)) {
@@ -439,6 +441,7 @@ BOOL keydisp_paint(CMNVRAM *vram, BOOL redraw) {
 	keydisp.framepast = 0;
 
 kdpnt_exit:
+	vram->ptr = saveptr;
 	return(draw);
 }
 #endif
