@@ -39,7 +39,9 @@ target_compile_definitions(vermouth PRIVATE
     UNICODE
     _UNICODE
     _USRDLL
-    WINVER=0x0601
+# Build for Win7
+#    WINVER=0x0601
+    WINVER=0x0A00
     $<$<CXX_COMPILER_ID:MSVC>:
         $<$<CONFIG:Debug>:_DEBUG>
         $<$<CONFIG:Release>:NDEBUG>

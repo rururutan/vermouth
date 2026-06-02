@@ -4,6 +4,7 @@
 #include	"ini.h"
 #include	"subwind.h"
 #include	"keydisp.h"
+#include	"darkmode.h"
 
 
 // ---- key display
@@ -17,6 +18,7 @@ typedef struct {
 	HBITMAP		dib;
 	HBITMAP		oldbmp;
 	CMNVRAM		vram;
+	UINT		dpi;
 } KDISPWIN;
 
 typedef struct {
@@ -57,7 +59,8 @@ static void kddrawkeys(HDC hdc, BOOL redraw) {
 
 	keydisp_paint(&kdispwin.vram, TRUE);
 
-	BitBlt(
+	if (kdispwin.dpi == 96) {
+		BitBlt(
 		hdc,
 		0,
 		0,
@@ -67,6 +70,20 @@ static void kddrawkeys(HDC hdc, BOOL redraw) {
 		0,
 		0,
 		SRCCOPY);
+	} else {
+		StretchBlt(
+		hdc,
+		0,
+		0,
+		KEYDISP_WIDTH * kdispwin.dpi / 96,
+		KEYDISP_HEIGHT * kdispwin.dpi / 96,
+		kdispwin.hdc,
+		0,
+		0,
+		KEYDISP_WIDTH,
+		KEYDISP_HEIGHT,
+		SRCCOPY);
+	}
 }
 
 static WINLOCEX winlocexallwin(HWND base) {
@@ -98,7 +115,7 @@ static void kdsetwinsize(void) {
 	wlex = winlocexallwin(hWndMain);
 	winlocex_setholdwnd(wlex, kdispwin.hwnd);
 	keydisp_getsize(&width, &height);
-	winloc_setclientsize(kdispwin.hwnd, width, height);
+	winloc_setclientsize(kdispwin.hwnd, width * kdispwin.dpi / 96, height * kdispwin.dpi / 96);
 	winlocex_move(wlex);
 	winlocex_destroy(wlex);
 }
@@ -194,6 +211,40 @@ static LRESULT CALLBACK kdproc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp) {
 			kdispwin.hwnd = NULL;
 			break;
 
+		case WM_SIZE:
+			InvalidateRect(hWnd, NULL, TRUE);
+			break;
+
+		case WM_ERASEBKGND:
+			return 1;
+
+#if WINVER >= 0xa00
+		case WM_SETTINGCHANGE:
+			if (lp && lstrcmp((wchar_t const*)lp, L"ImmersiveColorSet") == 0)
+			{
+				darkmode_set(hWnd);
+				SetWindowPos(hWnd, NULL, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_DRAWFRAME);
+			}
+			break;
+
+		case WM_DPICHANGED:
+			{
+				kdispwin.dpi = HIWORD(wp);
+				InvalidateRect(hWnd, NULL, TRUE);
+
+				RECT* rc = (RECT*)lp;
+				SetWindowPos(
+					hWnd,
+					NULL,
+					rc->left,
+					rc->top,
+					rc->right - rc->left,
+					rc->bottom - rc->top,
+					SWP_NOZORDER | SWP_NOACTIVATE);
+			}
+			break;
+#endif // WINVER
+
 		default:
 			return(DefWindowProc(hWnd, msg, wp, lp));
 	}
@@ -205,7 +256,7 @@ BOOL kdispwin_initialize(void) {
 	WNDCLASS	wc;
 
 	ZeroMemory(&wc, sizeof(wc));
-	wc.style =  CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+	wc.style =  CS_DBLCLKS;
 	wc.lpfnWndProc = kdproc;
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
@@ -250,6 +301,10 @@ void kdispwin_create(void) {
 		GetWindowText(hWndMain, _title + pos, NELEMENTS(_title) - pos);
 		title = _title;
 	}
+
+#if WINVER >= 0xa00
+	DPI_AWARENESS_CONTEXT oldContext = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+#endif // WINVER
 	ZeroMemory(&kdispwin, sizeof(kdispwin));
 	hwnd = CreateWindow(kdispclass, title,
 						WS_OVERLAPPED | WS_SYSMENU | WS_CAPTION |
@@ -257,12 +312,22 @@ void kdispwin_create(void) {
 						kdispcfg.posx, kdispcfg.posy,
 						KEYDISP_WIDTH, KEYDISP_HEIGHT,
 						NULL, NULL, hInst, NULL);
+#if WINVER >= 0xa00
+	SetThreadDpiAwarenessContext(oldContext);
+#endif // WINVER
 	kdispwin.hwnd = hwnd;
 	if (hwnd == NULL) {
 		goto kdcre_err1;
 	}
 	ShowWindow(hwnd, SW_SHOWNOACTIVATE);
 	UpdateWindow(hwnd);
+
+#if WINVER >= 0xa00
+	darkmode_set(hwnd);
+	kdispwin.dpi = GetDpiForWindow(hwnd);
+#else	// WINVER
+	kdispwin.dpi = 96;
+#endif // WINVER
 
 	BITMAPINFO bmi;
 	void *bits;
@@ -355,5 +420,5 @@ void kdispwin_writeini(void) {
 	initgetfile(path, NELEMENTS(path));
 	ini_write(path, kdispapp, kdispini, NELEMENTS(kdispini));
 }
-#endif
+#endif // SUPPORT_KEYDISP
 
