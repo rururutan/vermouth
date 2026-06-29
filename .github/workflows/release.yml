@@ -13,15 +13,14 @@ jobs:
     name: Build (${{ matrix.arch }})
     runs-on: windows-latest
 
-strategy:
-  fail-fast: false
-  matrix:
-    include:
-      - arch: Win32
-        suffix: x86
-
-      - arch: x64
-        suffix: x64
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: Win32
+            suffix: x86
+          - arch: x64
+            suffix: x64
 
 steps:
   - name: Checkout
