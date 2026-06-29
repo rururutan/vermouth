@@ -63,5 +63,6 @@ target_link_libraries(vermouth PRIVATE
 #------------------------------------------
 set_target_properties(vermouth PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    OUTPUT_NAME vermouth
 )
 
