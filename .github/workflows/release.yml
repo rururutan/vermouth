@@ -1,17 +1,17 @@
 name: Release
 
 on:
-push:
-tags:
-- "v*"
+  push:
+    tags:
+      - "v*"
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-build:
-name: Build (${{ matrix.arch }})
-runs-on: windows-latest
+  build:
+    name: Build (${{ matrix.arch }})
+    runs-on: windows-latest
 
 strategy:
   fail-fast: false
@@ -62,9 +62,9 @@ steps:
       path: vermouth-${{ github.ref_name }}-${{ matrix.suffix }}.zip
 
 release:
-name: Publish Release
-runs-on: windows-latest
-needs: build
+  name: Publish Release
+  runs-on: windows-latest
+  needs: build
 
 steps:
   - name: Download Artifacts
